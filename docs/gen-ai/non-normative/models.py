@@ -348,8 +348,13 @@ class OutputMessage(ChatMessage):
     specific response (choice, candidate).
     """
 
-    finish_reason: Union[FinishReason, str] = Field(
-        description="Reason for finishing the generation."
+    finish_reason: Optional[Union[FinishReason, str]] = Field(
+        default=None,
+        description=(
+            "Deprecated: report finish reasons in `gen_ai.response.finish_reasons` instead. "
+            "Reason for finishing the generation."
+        ),
+        deprecated=True,
     )
 
 
@@ -366,22 +371,9 @@ class OutputMessages(RootModel[List[OutputMessage]]):
 # --------------------------------------------------------------------------
 
 
-class ExecutionStep(BaseModel):
+class ExecutionSteps(RootModel[List[MessagePart]]):
     """
-    Represents a single provider-reported execution step.
-    """
-
-    type: str = Field(description="Provider-specific type of execution step.")
-    parts: List[MessagePart] = Field(
-        description="List of message parts that make up the execution step."
-    )
-
-    model_config = ConfigDict(extra="allow")
-
-
-class ExecutionSteps(RootModel[List[ExecutionStep]]):
-    """
-    Represents the ordered execution steps reported by the model or agent provider.
+    Represents provider-reported execution steps as an ordered list of message parts.
     """
 
     pass

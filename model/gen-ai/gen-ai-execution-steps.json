@@ -92,65 +92,6 @@
             "title": "CompactionPart",
             "type": "object"
         },
-        "ExecutionStep": {
-            "additionalProperties": true,
-            "description": "Represents a single provider-reported execution step.",
-            "properties": {
-                "type": {
-                    "description": "Provider-specific type of execution step.",
-                    "title": "Type",
-                    "type": "string"
-                },
-                "parts": {
-                    "description": "List of message parts that make up the execution step.",
-                    "items": {
-                        "anyOf": [
-                            {
-                                "$ref": "#/$defs/TextPart"
-                            },
-                            {
-                                "$ref": "#/$defs/ToolCallRequestPart"
-                            },
-                            {
-                                "$ref": "#/$defs/ToolCallResponsePart"
-                            },
-                            {
-                                "$ref": "#/$defs/ServerToolCallPart"
-                            },
-                            {
-                                "$ref": "#/$defs/ServerToolCallResponsePart"
-                            },
-                            {
-                                "$ref": "#/$defs/BlobPart"
-                            },
-                            {
-                                "$ref": "#/$defs/FilePart"
-                            },
-                            {
-                                "$ref": "#/$defs/UriPart"
-                            },
-                            {
-                                "$ref": "#/$defs/ReasoningPart"
-                            },
-                            {
-                                "$ref": "#/$defs/CompactionPart"
-                            },
-                            {
-                                "$ref": "#/$defs/GenericPart"
-                            }
-                        ]
-                    },
-                    "title": "Parts",
-                    "type": "array"
-                }
-            },
-            "required": [
-                "type",
-                "parts"
-            ],
-            "title": "ExecutionStep",
-            "type": "object"
-        },
         "FilePart": {
             "additionalProperties": true,
             "description": "Represents an external referenced file sent to the model by file id",
@@ -506,9 +447,43 @@
             "type": "object"
         }
     },
-    "description": "Represents the ordered execution steps reported by the model or agent provider.",
+    "description": "Represents provider-reported execution steps as an ordered list of message parts.",
     "items": {
-        "$ref": "#/$defs/ExecutionStep"
+        "anyOf": [
+            {
+                "$ref": "#/$defs/TextPart"
+            },
+            {
+                "$ref": "#/$defs/ToolCallRequestPart"
+            },
+            {
+                "$ref": "#/$defs/ToolCallResponsePart"
+            },
+            {
+                "$ref": "#/$defs/ServerToolCallPart"
+            },
+            {
+                "$ref": "#/$defs/ServerToolCallResponsePart"
+            },
+            {
+                "$ref": "#/$defs/BlobPart"
+            },
+            {
+                "$ref": "#/$defs/FilePart"
+            },
+            {
+                "$ref": "#/$defs/UriPart"
+            },
+            {
+                "$ref": "#/$defs/ReasoningPart"
+            },
+            {
+                "$ref": "#/$defs/CompactionPart"
+            },
+            {
+                "$ref": "#/$defs/GenericPart"
+            }
+        ]
     },
     "title": "ExecutionSteps",
     "type": "array"

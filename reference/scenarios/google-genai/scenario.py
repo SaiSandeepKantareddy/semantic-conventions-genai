@@ -142,38 +142,77 @@ def _execution_step_part(content):
     item_type = item.get("type")
     if item_type == "text":
         return {"type": "text", "content": item.get("text") or item.get("content", "")}
-    if item_type in {"function_call", "tool_call"}:
-        part = {
-            "type": "tool_call",
-            "name": item.get("name", ""),
-            "arguments": item.get("args") or item.get("arguments"),
-        }
-        if item.get("id"):
-            part["id"] = item["id"]
-        return part
-    if item_type in {"function_response", "function_result", "tool_call_response"}:
-        part = {
-            "type": "tool_call_response",
-            "response": item.get("response") or item.get("result"),
-        }
-        if item.get("id"):
-            part["id"] = item["id"]
-        return part
     return item if item_type else None
+
+
+def _server_tool_part(step, step_type):
+    if step_type.endswith("_call"):
+        part = {
+            "type": "server_tool_call",
+            "name": step_type.removesuffix("_call"),
+            "server_tool_call": step,
+        }
+        if step.get("id"):
+            part["id"] = step["id"]
+        return part
+    if step_type.endswith("_result"):
+        part = {
+            "type": "server_tool_call_response",
+            "server_tool_call_response": step,
+        }
+        if step.get("call_id"):
+            part["id"] = step["call_id"]
+        return part
+    return None
+
+
+def _execution_step_parts(raw_step):
+    step = _model_dict(raw_step)
+    step_type = step.get("type")
+    if not step_type:
+        return []
+
+    if step_type in {"user_input", "model_output"}:
+        content = step.get("content") or []
+        return [part for item in content if (part := _execution_step_part(item))]
+
+    if step_type == "thought":
+        parts = []
+        for summary in step.get("summary") or []:
+            item = _execution_step_part(summary)
+            if item and item["type"] == "text":
+                item["type"] = "reasoning"
+            if item:
+                parts.append(item)
+        return parts
+
+    if step_type == "function_call":
+        return [
+            {
+                "type": "tool_call",
+                "id": step.get("id"),
+                "name": step.get("name", ""),
+                "arguments": step.get("arguments"),
+            }
+        ]
+
+    if step_type == "function_result":
+        return [
+            {
+                "type": "tool_call_response",
+                "id": step.get("call_id"),
+                "response": step.get("result"),
+            }
+        ]
+
+    server_tool_part = _server_tool_part(step, step_type)
+    return [server_tool_part] if server_tool_part else [step]
 
 
 def _execution_steps(interaction):
     steps = []
     for raw_step in getattr(interaction, "steps", None) or []:
-        step = _model_dict(raw_step)
-        step_type = step.get("type")
-        content = step.get("content") or step.get("parts") or []
-        if isinstance(content, dict):
-            content = [content]
-        parts = [_execution_step_part(item) for item in content]
-        parts = [part for part in parts if part]
-        if step_type and parts:
-            steps.append({"type": step_type, "parts": parts})
+        steps.extend(_execution_step_parts(raw_step))
     return steps
 
 
@@ -238,7 +277,6 @@ def run_chat():
             {
                 "role": "assistant",
                 "parts": [{"type": "text", "content": response.text}],
-                "finish_reason": str(response.candidates[0].finish_reason) if response.candidates else None,
             }
         ]
         _emit_inference_event(request_model, input_messages, output_messages, response, usage)
@@ -308,7 +346,6 @@ def run_interactions_continuation():
                     {
                         "role": "assistant",
                         "parts": [{"type": "text", "content": "This is a response from the mock interactions server."}],
-                        "finish_reason": "stop",
                     }
                 ]
             ),
@@ -323,7 +360,7 @@ def run_interactions_continuation():
             if interaction.usage.total_output_tokens:
                 event_attrs["gen_ai.usage.output_tokens"] = interaction.usage.total_output_tokens
         if execution_steps:
-            event_attrs["gen_ai.execution.steps"] = json.dumps(execution_steps)
+            event_attrs["gen_ai.execution.steps"] = execution_steps
         reference_event_logger().emit(
             event_name="gen_ai.client.inference.operation.details",
             body="Inference operation details",
@@ -414,7 +451,6 @@ def run_chat_tool_call():
                     if tool_call
                     else [{"type": "text", "content": response.text}]
                 ),
-                "finish_reason": str(response.candidates[0].finish_reason) if response.candidates else None,
             }
         ]
         _emit_inference_event(request_model, input_messages, output_messages, response, usage)
@@ -475,7 +511,6 @@ def run_chat_multimodal():
             {
                 "role": "assistant",
                 "parts": [{"type": "text", "content": response.text}],
-                "finish_reason": str(response.candidates[0].finish_reason) if response.candidates else None,
             }
         ]
         _emit_inference_event(request_model, input_messages, output_messages, response, usage)
@@ -527,7 +562,6 @@ def run_generate_media():
                 {
                     "role": "assistant",
                     "parts": output_parts,
-                    "finish_reason": str(response.candidates[0].finish_reason) if response.candidates else None,
                 }
             ]
             _emit_inference_event(request_model, input_messages, output_messages, response, usage)
